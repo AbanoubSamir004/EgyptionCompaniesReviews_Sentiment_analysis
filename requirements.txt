@@ -1,0 +1,9 @@
+streamlit
+pandas
+snscrape
+matplotlib
+streamlit-aggrid==0.2.2-2
+transformers
+nltk
+wordcloud
+PIL
