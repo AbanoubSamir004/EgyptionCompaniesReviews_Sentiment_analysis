@@ -22,7 +22,7 @@ nltk.download('stopwords')
 import re
 import emoji
 from sklearn.svm import LinearSVC
-import string
+import joblib
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import MultinomialNB
@@ -351,29 +351,15 @@ emoticons_to_emoji = {
     "♡" : "❤",
     "☻"  : "🙂",
 }
-def remove_diacritics(text):
-    arabic_diacritics = re.compile(""" ّ    | # Tashdid
-                             َ    | # Fatha
-                             ً    | # Tanwin Fath
-                             ُ    | # Damma
-                             ٌ    | # Tanwin Damm
-                             ِ    | # Kasra
-                             ٍ    | # Tanwin Kasr
-                             ْ    | # Sukun
-                             ـ     # Tatwil/Kashida
-                         """, re.VERBOSE)
-    text = re.sub(arabic_diacritics, '', str(text))
-    return text
-
-
 
 def arabic_trained_model():
     preprocessing_data=pd.read_excel("final_preprocessing_dataset.xlsx")
     preprocessing_data.dropna(subset=['final_text_lemmatizer'], how='any', inplace=True)
 
+    word_vectorizer = TfidfVectorizer(ngram_range=(1, 3))
     unigramdataGet= word_vectorizer.fit_transform(preprocessing_data['final_text_lemmatizer'].astype('str'))
     unigramdataGet = unigramdataGet.toarray()
-    vocab = word_vectorizer.get_feature_names_out()
+    vocab = word_vectorizer.get_feature_names()
     unigramdata_features=pd.DataFrame(np.round(unigramdataGet, 1), columns=vocab)
     unigramdata_features[unigramdata_features>0] = 1
 
@@ -381,56 +367,40 @@ def arabic_trained_model():
     arabic_train_model = LogisticRegression().fit(unigramdata_features, Y)
     return arabic_train_model
 
-word_vectorizer = TfidfVectorizer(
-    sublinear_tf=True,
-    strip_accents='unicode',
-    analyzer='word',
-    ngram_range=(1, 2),
-    max_features =5000)
 
-def arabic_model(tweet,model):
+train_model=joblib.load("LogisticRegression")
 
+
+
+def data_preprocessing(tweet):
+ 
     stopWords=list(set(stopwords.words("arabic")))## To remove duplictes and return to list again 
     #Some words needed to work with to will remove 
     for word in ['واو','لا','لكن','ولكن','أطعم', 'أف','ليس','ولا','ما']:
         stopWords.remove(word)
-    #remove punctuations
-    tweet['reviews']=tweet['reviews'].astype(str)
-    tweet['reviews']=tweet['reviews'].apply(lambda x:re.sub('[%s]' % re.escape("""!"#$%&'()*+,،-./:;<=>؟?@[\]^_`{|}~"""), ' ', x))
-    tweet['reviews']=tweet['reviews'].apply(lambda x:x.replace('؛',"", ))
+  #Remove Punctuation
+    tweet['clean_text']=tweet['reviews'].astype(str)
+    tweet['clean_text']=tweet['clean_text'].apply(lambda x:re.sub('[%s]' % re.escape("""!"#$%&'()*+,،-./:;<=>؟?@[\]^_`{|}~"""), ' ', x))
+    tweet['clean_text']=tweet['clean_text'].apply(lambda x:x.replace('؛',"", ))
     #remove stopwords
-    tweet['reviews']=tweet['reviews'].apply(lambda x:" ".join([word for word in x.split() if word not in stopWords]))
+    tweet['clean_text']=tweet['clean_text'].apply(lambda x:" ".join([word for word in x.split() if word not in stopWords]))
     #Handle Emojies
-    tweet['reviews']=tweet['reviews'].apply(lambda x:emojiTextTransform(x))
+    tweet['clean_text']=tweet['clean_text'].apply(lambda x:emojiTextTransform(x))
     #Remove Numbers
-    tweet['reviews']=tweet['reviews'].apply(lambda x:''.join([word for word in x if not word.isdigit()]))
-   
-   
+    tweet['clean_text']=tweet['clean_text'].apply(lambda x:''.join([word for word in x if not word.isdigit()]))
+
     tweet.dropna(inplace=True)
-    tweet.drop_duplicates(subset=['reviews'],inplace=True)
-    tweet=tweet.reset_index(drop=True)
+    tweet.drop_duplicates(subset=['clean_text'],inplace=True)
 
     lemmer = qalsadi.lemmatizer.Lemmatizer()
-    tweet['reviews'] = tweet.reviews.apply(lambda x:lemmer.lemmatize_text(x))
-    tweet['reviews']= convert_list_to_str(tweet['reviews'])
+    tweet['data_lemmatization'] = tweet.clean_text.apply(lambda x:lemmer.lemmatize_text(x))
+    tweet['data_lemmatization']=tweet.data_lemmatization.apply(lambda x:" ".join(x))
 
-   
-    X= word_vectorizer.transform(tweet['reviews'])
-    unigramdataGet = X.toarray()
-    vocab = word_vectorizer.get_feature_names_out()
-    X=pd.DataFrame(np.round(unigramdataGet, 1), columns=vocab)
-
-    sentiment=model.predict(X)
-
+    vectorizer=TfidfVectorizer(max_features=1000,ngram_range=(1, 2))
+    FeatureText=vectorizer.fit_transform(tweet.data_lemmatization)
+    X=pd.DataFrame(FeatureText.toarray(),columns=vectorizer.get_feature_names_out())
+    sentiment=train_model.predict(X)
     return sentiment
-    
-def convert_list_to_str(data):
-    data = str(data)
-    data = data.replace("'",'')
-    data = data.replace(',','')
-    data = data.replace('[','')
-    data = data.replace(']','')
-    return data
 
 def checkemojie(text):
     emojistext=[]
@@ -444,7 +414,7 @@ def emojiTextTransform(text):
     return cleantext+" "+checkemojie(text)
 
 #calling trained model
-train_model=arabic_trained_model()
+
 def get_sentiments(tweets,opt):
     """
     Get sentiments
@@ -456,7 +426,7 @@ def get_sentiments(tweets,opt):
         #tweets=pd.DataFrame(tweets,columns=['reviews'])
         tweets=pd.read_excel("E:\Company-Sentiment-Analysis-master\capiter.xlsx")
         tweets.rename(columns = {'review_description':'reviews'}, inplace = True)
-        sentiments=arabic_model(tweets,train_model)
+        sentiments=data_preprocessing(tweets)
         x=pd.DataFrame(sentiments)
         x.to_excel('counts.xlsx')
     else:
@@ -474,6 +444,8 @@ def main():
     """
     Main
     """
+
+
     st.set_page_config(layout="wide",initial_sidebar_state="collapsed")
     col1,col2,col3 = st.columns((1,2,1))
     image = Image.open('banquemisr.png')
