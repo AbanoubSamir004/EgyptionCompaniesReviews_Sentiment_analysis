@@ -9,3 +9,4 @@ wordcloud
 PIL
 pytorch
 transformers[sentencepiece]
+sparse
