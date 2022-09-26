@@ -455,9 +455,8 @@ def get_sentiments(tweets,opt):
         sentiments = []
         pbar = st.progress(0)
         latest_iteration = st.empty()
-        df=pd.read_excel("opay_dataset.xlsx")
         tweets=pd.DataFrame(tweets,columns=['review_description'])
-        sentiments=data_preprocessing(df)
+        sentiments=data_preprocessing(tweets)
         latest_iteration.text(f'{100}% Done')
         pbar.progress(100)
         x=pd.DataFrame(sentiments)
@@ -566,7 +565,7 @@ def main():
                 else:
                     st.error(f'WordCloud not available for Language = {opt}')
     if choice == "Data Visualization":
-        webbrowser.open("https://public.tableau.com/app/profile/marwan.salah5320/viz/Sentiment_Analysis_16641757630180/Dashboard1?publish=yes")
+        webbrowser.open("https://public.tableau.com/app/profile/marwan.salah5320/viz/SentimentAnalysis_ArabCompanies/Dashboard1?publish=yes")
         del st.session_state['menu_bar']
         st.session_state['menu_bar'] = menu[0]
         choice=menu[0]
