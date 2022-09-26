@@ -20,7 +20,7 @@ import re
 import emoji
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-import tokenizers
+import pickle
 
 #please download the pretrained model for english sentiments [note: Only download it once. ]
 #nlp = pipeline("sentiment-analysis", model='akhooli/xlm-r-large-arabic-sent')
@@ -316,34 +316,20 @@ emoticons_to_emoji = {
     "☻"  : "🙂",
 }
 
-# defining a vectorizer with max_features as 1000 and ngrams as (1, 2) 
-# which will be used for converting text into numarical form so the ML algorithm can handel it
-vectorizer=TfidfVectorizer(max_features=1000,ngram_range=(1, 2))    
 
-#this function is parameterless as it only return a trained the model on the data set so it can be used to predict future sentiments 
+
+#LOAD ARABIC MODEL TRAINED ON DATASET
 def arabic_trained_model():
-    # reading data from xlsx formate as CSV doesn't preform wel, also training data is already preprocessed
-    preprocessing_data=pd.read_excel("final_preproccessing-dataset.xlsx")
-    #dropping nulls 
-    preprocessing_data.dropna(subset=['final_text_lemmatizer'], how='any', inplace=True)
+    filename = 'Custom trained model/custom_trained_model.sav'
+    loaded_model = pickle.load(open(filename, 'rb'))
+    return loaded_model
 
-    #vectoring text data into numarical data, then stor it in data frame for futiure ease of usage
-    unigramdataGet= vectorizer.fit_transform(preprocessing_data['final_text_lemmatizer'].astype('str'))
-    unigramdataGet = unigramdataGet.toarray()
-    vocab = vectorizer.get_feature_names_out()
-    unigramdata_features=pd.DataFrame(np.round(unigramdataGet, 1), columns=vocab)
-    unigramdata_features[unigramdata_features>0] = 1
 
-    #defining target(groundtruth) values for training
-    Y=preprocessing_data.rating
-
-    #defining and fitting logisiticRegression as it has the best accuracy and the least error
-    arabic_train_model = LogisticRegression(max_iter=150).fit(unigramdata_features, Y)
-    return arabic_train_model
-
-#this function is used as the genrel preprocessing function that holdes all preprocessing steps in it
-#it takes a data frame and returns the features (X) which is to be passed to the model to predict its output
-def getX(df):
+def preprocess_arabic(df):
+    # defining a vectorizer with max_features as 1000 and ngrams as (1, 2) 
+    # which will be used for converting text into numerical form so the ML algorithm can handel it
+    filename='Custom trained model/custom_vectorizer.pk'
+    vectorizer = pickle.load(open(filename,'rb'))
 
     #this function renoves the diacritics(التشكيل او الزخارف)
     def remove_diacritics(text):
@@ -360,7 +346,7 @@ def getX(df):
         text = re.sub(arabic_diacritics, '', str(text))
         return text
 
-    #checks the excistance of emojies
+    #checks the existance of emojis
     def checkemojie(text):
         emojistext=[]
         for char in text:
@@ -414,11 +400,10 @@ def getX(df):
         data = data.replace(']','')
         return data
 
-    #abiling text converion
+    #applying text conversion
     df['final_text'] = df.final_text.apply(convert_list_to_str)
-    df.to_excel('final_lemmatization.xlsx')
 
-    # now and finaly the end of preprocessing we well vectorize all text to numarical vectors and returning it as features
+    #vectorize all text to numerical vectors and returning it as features
     text_features=vectorizer.transform(df["final_text"])
     my_array=text_features.toarray()
     X=pd.DataFrame(my_array,columns=vectorizer.get_feature_names_out())
@@ -428,17 +413,25 @@ def getX(df):
 def setup_model():  
     """
     Setup Model
+    Output:
+        nlp: XLM RoBERTa HuggingFace multilingual Model
     """
-    # this will download 2 GB
+    # MAKE SURE the model is save in 'XLM-R-L-ARABIC-SENT'
+    # model link: https://huggingface.co/akhooli/xlm-r-large-arabic-sent
     nlp = pipeline("sentiment-analysis", model='XLM-R-L-ARABIC-SENT')
     return nlp
 
-#function that fetches tweets from twitter
+
 def get_tweets(query,limit):
     """
     Get Tweets
+    Input: 
+        query:  ex.  query = '"IBM" min_replies:10 min_faves:500 min_retweets:10 lang:ar'
+        limit: number of tweets
+    Output:
+        tweets: scraped tweets from twitter
     """
-    #query = '"IBM" min_replies:10 min_faves:500 min_retweets:10 lang:ar'
+    #
     tweets = []
     pbar = st.progress(0)
     latest_iteration = st.empty()
@@ -454,59 +447,61 @@ def get_tweets(query,limit):
 
 # Fxn
 #store fetched sentiments in a data frame
-def convert_to_df(sentiment,opt):
+def convert_to_df(sentiment_counts,opt):
     """
     Convert to df
+    Input:
+        sentiment_counts: list of sentiment counts
+        opt: language - Arabic/English
+    Output:
+        sentiment_df: dataframe of mapped sentiments
     """
     if opt=='Arabic':
-        label2 = sentiment[1] if 1 in sentiment.index else 0
-        label1 = sentiment[-1] if -1 in sentiment.index else 0
-        label0 = sentiment[0] if 0 in sentiment.index else 0
+        label2 = sentiment_counts[1] if 1 in sentiment_counts.index else 0
+        label1 = sentiment_counts[-1] if -1 in sentiment_counts.index else 0
+        label0 = sentiment_counts[0] if 0 in sentiment_counts.index else 0
         sentiment_dict = {'Positive':label2,'Neutral':label0,'Negative':label1}
     else:
-        label2 = sentiment.LABEL_2 if 'LABEL_2' in sentiment.index else 0
-        label1 = sentiment.LABEL_1 if 'LABEL_1' in sentiment.index else 0
-        label0 = sentiment.LABEL_0 if 'LABEL_0' in sentiment.index else 0
+        label2 = sentiment_counts.LABEL_2 if 'LABEL_2' in sentiment_counts.index else 0
+        label1 = sentiment_counts.LABEL_1 if 'LABEL_1' in sentiment_counts.index else 0
+        label0 = sentiment_counts.LABEL_0 if 'LABEL_0' in sentiment_counts.index else 0
         sentiment_dict = {'Positive':label2,'Neutral':label0,'Negative':label1}
 
     sentiment_df = pd.DataFrame(sentiment_dict.items(),columns=['Sentiment','Count'])
     return sentiment_df
 
 
-#here we get real values of prediction by passing the features to the trained model
-def data_preprocessing(data):
-    train_model=arabic_trained_model()
-    X = getX(data)
-    sentiment = train_model.predict(X)
-    return sentiment
 
-#here is the final business logic in which we ably all the steps abd return a final prediction for our inputs
-def get_sentiments(tweets,opt):
+
+def get_sentiments(tweets,opt,model):
     """
     Get sentiments
+    Input:
+        tweets: fetched tweets
+        opt: language - Arabic/English
+        model: loaded model
+    Output:
+        sentiments: predicted sentiments by model
     """
+    sentiments = []
+    pbar = st.progress(0)
+    latest_iteration = st.empty()
     if opt =='Arabic':
-        sentiments = []
-        pbar = st.progress(0)
-        latest_iteration = st.empty()
         tweets=pd.DataFrame(tweets,columns=['review_description'])
-        sentiments=data_preprocessing(tweets)
-        latest_iteration.text(f'{100}% Done')
+        X=preprocess_arabic(tweets)
+        sentiments = model.predict(X)
         pbar.progress(100)
-        x=pd.DataFrame(sentiments)
-        x.to_excel('counts.xlsx')
+        latest_iteration.text('100% Done')
+            
     else:
-        nlp = setup_model()
-        sentiments = []
-        pbar = st.progress(0)
-        latest_iteration = st.empty()
+
         for i,tweet in enumerate(tweets):
             latest_iteration.text(f'{int((i+1)/len(tweets)*100)}% Done')
             pbar.progress(int((i+1)/len(tweets)*100))
-            sentiments.append(nlp(tweet)[0]['label'])
+            sentiments.append(model(tweet)[0]['label'])
     return sentiments
 
-#this very big section is responsible for GUI 
+# MAIN GUI
 def main():
     """
     Main
@@ -526,37 +521,49 @@ def main():
     if choice == "Home":
         with col1:
             st.subheader("Home")
-            
             temp = st.slider("Choose sample size",min_value=50,max_value=10000)
-            opt = st.selectbox('Language',pd.Series(['Arabic','English']))
+            #opt = st.selectbox('Language',pd.Series(['Arabic','English']))
             likes = st.slider("Minimum number of likes on tweet",min_value=0,max_value=5000)
             retweets = st.slider("Minimum number of retweets on tweet",min_value=0,max_value=500)
-            with st.form(key='nlpForm'):
-                raw_text = st.text_area("Enter company name here")
-                submit_button = st.form_submit_button(label='Analyze')       
+            with st.form(key='form'):
+                comp_en = st.text_input("Company name (English)",key='comp_en')
+                comp_ar = st.text_input("Company name (Arabic)",key='comp_ar')
+                submit_button = st.form_submit_button(label='Analyze')
         # layout
-        if submit_button:
+        if submit_button and len(comp_en)>0 and len(comp_ar)>0:
             with col2:
-                st.success(f'Selected Language: {opt}',)
-                if opt=='Arabic':
-                    query = raw_text + ' lang:ar'
+                st.success(f'Selected Language: Arabic, English')
+                query_en = comp_en + ' lang:en'
+                query_ar = comp_ar +' lang:ar'
+                query_en += f' min_faves:{likes} min_retweets:{retweets}'
+                query_ar += f' min_faves:{likes} min_retweets:{retweets}'
+                st.write('Retreiving Tweets (English)...')
+                tweets_en = get_tweets(query_en,temp)
+                if(len(tweets_en)==temp):
+                    st.success(f'Found {len(tweets_en)}/{temp}')
                 else:
-                    query = raw_text + ' lang:en'
-                query += f' min_faves:{likes} min_retweets:{retweets}'
-                st.write('Retreiving Tweets...')
-                tweets = get_tweets(query,temp)
-                if(len(tweets)==temp):
-                    st.success(f'Found {len(tweets)}/{temp}')
+                    st.error(f'Only Found {len(tweets_en)}/{temp}. Try changing min_likes, min_retweets')
+                st.write('Retreiving Tweets (Arabic)...')
+                tweets_ar = get_tweets(query_ar,temp)
+                if(len(tweets_ar)==temp):
+                    st.success(f'Found {len(tweets_ar)}/{temp}')
                 else:
-                    st.error(f'Only Found {len(tweets)}/{temp}. Try changing min_likes, min_retweets')
+                    st.error(f'Only Found {len(tweets_ar)}/{temp}. Try changing min_likes, min_retweets')
                 st.write('Loading Model...')
+                model_en = setup_model()
+                model_ar = arabic_trained_model()
                 st.success('Loaded Model')
-                st.write('Analyzing Sentiments...')
-                sentiments = get_sentiments(tweets,opt)
+                st.write('Analyzing Sentiments (English)...')
+                sentiments_en = get_sentiments(tweets_en,'English',model_en)
+                st.write('Analyzing Sentiments (Arabic)...')
+                sentiments_ar = get_sentiments(tweets_ar,'Arabic',model_ar)
                 st.success('DONE')
-                st.subheader("Results of "+raw_text)
-                counts = pd.Series(sentiments).value_counts()
-                result_df = convert_to_df(counts,opt)
+                st.subheader(f"Results of {comp_en}, {comp_ar}")
+                counts_en = pd.Series(sentiments_en).value_counts()
+                counts_ar = pd.Series(sentiments_ar).value_counts()
+                df_en = convert_to_df(counts_en,"English")
+                df_ar = convert_to_df(counts_ar,"Arabic")
+                result_df = pd.DataFrame({'Sentiment':df_en['Sentiment'],'Count':[x+y for x,y in zip(df_en['Count'].values,df_ar['Count'].values)],'Count_ar':df_ar['Count'],'Count_en':df_en['Count']})
                 # Dataframe
                 st.dataframe(result_df)
 
@@ -565,12 +572,29 @@ def main():
                         shadow=True, startangle=90,colors=['green','yellow','red'])
                 ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
                 st.pyplot(fig1)
-                tweets_s = pd.Series(tweets,name='Tweet')
-                sentiments_s = pd.Series(sentiments,name='Sentiment (pred)').replace(
-                    {'LABEL_2':'Positive','LABEL_1':'Negative','LABEL_0':'Neutral'})
-                all_df = pd.merge(left=tweets_s,right=sentiments_s,left_index=True,right_index=True)
-                all_df.to_excel('tweets.xlsx')
+                st.subheader("Word Cloud")
+                #Word Cloud
+                words = " ".join(word for tweet in tweets_en for word in tweet.split())
+                st_en = set(stopwords.words('english'))
+                #st_ar = set(stopwords.words('arabic'))
+                st_en = st_en.union(STOPWORDS).union(set(['https','http','DM','dm','via','co']))
+                wordcloud = WordCloud(stopwords=st_en, background_color="white", width=800, height=400)
+                wordcloud.generate(words)
+                fig2, ax2 = plt.subplots(figsize=(5,5))
+                ax2.axis("off")
+                fig2.tight_layout(pad=0)
+                ax2.imshow(wordcloud, interpolation='bilinear')
+                st.pyplot(fig2)
+                st.error(f'WordCloud not available for Language = Arabic')
             st.subheader("Tweets")
+            tweets_s_en = pd.Series(tweets_en,name='Tweet')
+            tweets_s_ar = pd.Series(tweets_ar,name='Tweet')
+            tweets_s = pd.concat([tweets_s_en,tweets_s_ar]).reset_index().drop('index',axis=1)
+            sentiments_s_en = pd.Series(sentiments_en,name='Sentiment (pred)').replace(
+                {'LABEL_2':'Positive','LABEL_1':'Negative','LABEL_0':'Neutral'})
+            sentiments_s_ar = pd.Series(sentiments_ar,name='Sentiment (pred)').replace({1:'Positive',0:'Neutral',-1:'Negative'})
+            sentiments_s = pd.concat([sentiments_s_en,sentiments_s_ar]).reset_index().drop('index',axis=1)
+            all_df = pd.merge(left=tweets_s,right=sentiments_s,left_index=True,right_index=True)
             gb = GridOptionsBuilder.from_dataframe(all_df)
             gb.configure_side_bar()
             grid_options = gb.build()
@@ -582,24 +606,9 @@ def main():
                 data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
                 fit_columns_on_grid_load=False,
             )
-            with col2:
-                st.subheader("Word Cloud")
-                #Word Cloud
-                if opt=='English':
-                    words = " ".join(word for tweet in tweets for word in tweet.split())
-                    st_en = set(stopwords.words('english'))
-                    #st_ar = set(stopwords.words('arabic'))
-                    st_en = st_en.union(STOPWORDS).union(set(['https','http','DM','dm','via','co']))
-                    wordcloud = WordCloud(stopwords=st_en, background_color="white", width=800, height=400)
-                    wordcloud.generate(words)
-                    fig2, ax2 = plt.subplots(figsize=(5,5))
-                    ax2.axis("off")
-                    fig2.tight_layout(pad=0)
-                    ax2.imshow(wordcloud, interpolation='bilinear')
-                    st.pyplot(fig2)
-                else:
-                    st.error(f'WordCloud not available for Language = {opt}')
-    if choice == "Data Visualization":
+
+
+    elif choice == "Data Visualization":
         webbrowser.open("https://public.tableau.com/app/profile/marwan.salah5320/viz/SentimentAnalysis_ArabCompanies/Dashboard1?publish=yes")
         del st.session_state['menu_bar']
         st.session_state['menu_bar'] = menu[0]
@@ -607,7 +616,7 @@ def main():
         st.experimental_rerun()
 
 
-    else:
+    elif choice=="About":
         st.subheader("About")
         st.write("This was made in order to have an idea about people's opinion on a certain company. The program scrapes twitter for tweets\
              that are about a certain company. The tweets are then fed into a model for sentiment analysis which is then used \
