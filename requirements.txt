@@ -7,7 +7,5 @@ transformers
 nltk
 wordcloud
 PIL
-qalsadi
-re
-emoji
-webbrowser
+pytorch
+transformers[sentencepiece]
