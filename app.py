@@ -17,6 +17,11 @@ import re
 import emoji
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+import tokenizers
+
+#please download the pretrained model for english sentiments [note: Only download it once. ]
+#nlp = pipeline("sentiment-analysis", model='akhooli/xlm-r-large-arabic-sent')
+#nlp.save_pretrained('XLM-R-L-ARABIC-SENT')
 
 emojis = {
     "🙂":"يبتسم",
@@ -416,14 +421,21 @@ def get_tweets(query,limit):
 
 
 # Fxn
-def convert_to_df(sentiment):
+def convert_to_df(sentiment,opt):
     """
     Convert to df
     """
-    label2 = sentiment[1] if 1 in sentiment.index else 0
-    label1 = sentiment[-1] if -1 in sentiment.index else 0
-    label0 = sentiment[0] if 0 in sentiment.index else 0
-    sentiment_dict = {'Positive':label2,'Neutral':label0,'Negative':label1}
+    if opt=='Arabic':
+        label2 = sentiment[1] if 1 in sentiment.index else 0
+        label1 = sentiment[-1] if -1 in sentiment.index else 0
+        label0 = sentiment[0] if 0 in sentiment.index else 0
+        sentiment_dict = {'Positive':label2,'Neutral':label0,'Negative':label1}
+    else:
+        label2 = sentiment.LABEL_2 if 'LABEL_2' in sentiment.index else 0
+        label1 = sentiment.LABEL_1 if 'LABEL_1' in sentiment.index else 0
+        label0 = sentiment.LABEL_0 if 'LABEL_0' in sentiment.index else 0
+        sentiment_dict = {'Positive':label2,'Neutral':label0,'Negative':label1}
+
     sentiment_df = pd.DataFrame(sentiment_dict.items(),columns=['Sentiment','Count'])
     return sentiment_df
 
@@ -443,8 +455,9 @@ def get_sentiments(tweets,opt):
         sentiments = []
         pbar = st.progress(0)
         latest_iteration = st.empty()
+        df=pd.read_excel("opay_dataset.xlsx")
         tweets=pd.DataFrame(tweets,columns=['review_description'])
-        sentiments=data_preprocessing(tweets)
+        sentiments=data_preprocessing(df)
         latest_iteration.text(f'{100}% Done')
         pbar.progress(100)
         x=pd.DataFrame(sentiments)
@@ -503,14 +516,13 @@ def main():
                 else:
                     st.error(f'Only Found {len(tweets)}/{temp}. Try changing min_likes, min_retweets')
                 st.write('Loading Model...')
-                #nlp = setup_model()
                 st.success('Loaded Model')
                 st.write('Analyzing Sentiments...')
                 sentiments = get_sentiments(tweets,opt)
                 st.success('DONE')
                 st.subheader("Results of "+raw_text)
                 counts = pd.Series(sentiments).value_counts()
-                result_df = convert_to_df(counts)
+                result_df = convert_to_df(counts,opt)
                 # Dataframe
                 st.dataframe(result_df)
 
