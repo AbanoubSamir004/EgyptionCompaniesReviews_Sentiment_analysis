@@ -1,3 +1,6 @@
+"""
+this section is mainly for import packages for GUI, Tokenization, Stemming, text proprocessing and modeling 
+"""
 import webbrowser
 import streamlit as st 
 import pandas as pd
@@ -22,6 +25,10 @@ import tokenizers
 #please download the pretrained model for english sentiments [note: Only download it once. ]
 #nlp = pipeline("sentiment-analysis", model='akhooli/xlm-r-large-arabic-sent')
 #nlp.save_pretrained('XLM-R-L-ARABIC-SENT')
+
+
+
+#this part is defining each emojie as a word descriping its meaning
 
 emojis = {
     "🙂":"يبتسم",
@@ -309,22 +316,36 @@ emoticons_to_emoji = {
     "☻"  : "🙂",
 }
 
+# defining a vectorizer with max_features as 1000 and ngrams as (1, 2) 
+# which will be used for converting text into numarical form so the ML algorithm can handel it
 vectorizer=TfidfVectorizer(max_features=1000,ngram_range=(1, 2))    
+
+#this function is parameterless as it only return a trained the model on the data set so it can be used to predict future sentiments 
 def arabic_trained_model():
+    # reading data from xlsx formate as CSV doesn't preform wel, also training data is already preprocessed
     preprocessing_data=pd.read_excel("final_preproccessing-dataset.xlsx")
+    #dropping nulls 
     preprocessing_data.dropna(subset=['final_text_lemmatizer'], how='any', inplace=True)
 
+    #vectoring text data into numarical data, then stor it in data frame for futiure ease of usage
     unigramdataGet= vectorizer.fit_transform(preprocessing_data['final_text_lemmatizer'].astype('str'))
     unigramdataGet = unigramdataGet.toarray()
     vocab = vectorizer.get_feature_names_out()
     unigramdata_features=pd.DataFrame(np.round(unigramdataGet, 1), columns=vocab)
     unigramdata_features[unigramdata_features>0] = 1
 
+    #defining target(groundtruth) values for training
     Y=preprocessing_data.rating
+
+    #defining and fitting logisiticRegression as it has the best accuracy and the least error
     arabic_train_model = LogisticRegression(max_iter=150).fit(unigramdata_features, Y)
     return arabic_train_model
 
+#this function is used as the genrel preprocessing function that holdes all preprocessing steps in it
+#it takes a data frame and returns the features (X) which is to be passed to the model to predict its output
 def getX(df):
+
+    #this function renoves the diacritics(التشكيل او الزخارف)
     def remove_diacritics(text):
         arabic_diacritics = re.compile(""" ّ    | # Tashdid
                              َ    | # Fatha
@@ -339,16 +360,20 @@ def getX(df):
         text = re.sub(arabic_diacritics, '', str(text))
         return text
 
+    #checks the excistance of emojies
     def checkemojie(text):
         emojistext=[]
         for char in text:
             if any(emoji.distinct_emoji_list(char)) and char in emojis.keys():
                 emojistext.append(emojis[emoji.distinct_emoji_list(char)[0]])
         return " ".join(emojistext)
+
+    #subestitute each emoji with its arabic meaning
     def emojiTextTransform(text):
         cleantext=re.sub(r'[^\w\s]','',text)
         return cleantext+" "+checkemojie(text)
 
+    # in this function we abily the bast functions to preprocess text perfore vecotization
     def clean_text(text):
  
         stopWords=list(set(stopwords.words("arabic")))## To remove duplictes and return to list again 
@@ -368,32 +393,38 @@ def getX(df):
         #Remove Numbers
         text['cleaned_text']=text['cleaned_text'].apply(lambda x:''.join([word for word in x if not word.isdigit()]))
 
+        #remove nulls and duplicated
         text.dropna(inplace=True)
         text.drop_duplicates(subset=['cleaned_text'],inplace=True)
         return text
 
+     #calling clean_text
     df = clean_text(df)
 
+    #lemmatizing text
     lemmer = qalsadi.lemmatizer.Lemmatizer()
     df['final_text'] = df.cleaned_text.apply(lambda x:lemmer.lemmatize_text(x))
 
+    #converts each list of words to a string 
     def convert_list_to_str(data):
         data = str(data)
         data = data.replace("'",'')
         data = data.replace(',','')                                                                                     
         data = data.replace('[','')
         data = data.replace(']','')
-
         return data
 
+    #abiling text converion
     df['final_text'] = df.final_text.apply(convert_list_to_str)
     df.to_excel('final_lemmatization.xlsx')
 
+    # now and finaly the end of preprocessing we well vectorize all text to numarical vectors and returning it as features
     text_features=vectorizer.transform(df["final_text"])
     my_array=text_features.toarray()
     X=pd.DataFrame(my_array,columns=vectorizer.get_feature_names_out())
     return X
 
+#use pretrained model for english sentiments
 def setup_model():  
     """
     Setup Model
@@ -402,6 +433,7 @@ def setup_model():
     nlp = pipeline("sentiment-analysis", model='XLM-R-L-ARABIC-SENT')
     return nlp
 
+#function that fetches tweets from twitter
 def get_tweets(query,limit):
     """
     Get Tweets
@@ -421,6 +453,7 @@ def get_tweets(query,limit):
 
 
 # Fxn
+#store fetched sentiments in a data frame
 def convert_to_df(sentiment,opt):
     """
     Convert to df
@@ -440,13 +473,14 @@ def convert_to_df(sentiment,opt):
     return sentiment_df
 
 
-
+#here we get real values of prediction by passing the features to the trained model
 def data_preprocessing(data):
     train_model=arabic_trained_model()
     X = getX(data)
     sentiment = train_model.predict(X)
     return sentiment
 
+#here is the final business logic in which we ably all the steps abd return a final prediction for our inputs
 def get_sentiments(tweets,opt):
     """
     Get sentiments
@@ -472,6 +506,7 @@ def get_sentiments(tweets,opt):
             sentiments.append(nlp(tweet)[0]['label'])
     return sentiments
 
+#this very big section is responsible for GUI 
 def main():
     """
     Main
