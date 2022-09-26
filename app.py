@@ -304,7 +304,7 @@ emoticons_to_emoji = {
     "☻"  : "🙂",
 }
 
-vectorizer=TfidfVectorizer(max_features=3000,ngram_range=(1, 3))    
+vectorizer=TfidfVectorizer(max_features=1000,ngram_range=(1, 2))    
 def arabic_trained_model():
     preprocessing_data=pd.read_excel("final_preproccessing-dataset.xlsx")
     preprocessing_data.dropna(subset=['final_text_lemmatizer'], how='any', inplace=True)
@@ -445,6 +445,8 @@ def get_sentiments(tweets,opt):
         latest_iteration = st.empty()
         tweets=pd.DataFrame(tweets,columns=['review_description'])
         sentiments=data_preprocessing(tweets)
+        latest_iteration.text(f'{100}% Done')
+        pbar.progress(100)
         x=pd.DataFrame(sentiments)
         x.to_excel('counts.xlsx')
     else:
