@@ -1,4 +1,4 @@
-from importlib.resources import path
+import webbrowser
 import streamlit as st 
 import pandas as pd
 import snscrape.modules.twitter as sntwitter
@@ -9,19 +9,13 @@ from st_aggrid import GridUpdateMode, DataReturnMode
 from transformers import pipeline
 from nltk.corpus import stopwords
 from wordcloud import WordCloud, STOPWORDS
-import PIL
 from PIL import Image
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 import qalsadi.lemmatizer
-import nltk
-#nltk.download('stopwords')
-#nltk.download('punkt')
 import re
 import emoji
-
 import numpy as np
-
 from sklearn.linear_model import LogisticRegression
 
 emojis = {
@@ -479,7 +473,7 @@ def main():
     with col2:
         st.title("")
     menu = ["Home","Data Visualization","About"]
-    choice = st.sidebar.selectbox("Menu",menu)
+    choice = st.sidebar.selectbox("Menu",menu,key='menu_bar')
     if choice == "Home":
         with col1:
             st.subheader("Home")
@@ -558,7 +552,11 @@ def main():
                 else:
                     st.error(f'WordCloud not available for Language = {opt}')
     if choice == "Data Visualization":
-        st.write("check out this our [Data visualization](https://public.tableau.com/app/profile/marwan.salah5320/viz/Sentiment_Analysis_16641757630180/Dashboard1?publish=yes)")
+        webbrowser.open("https://public.tableau.com/app/profile/marwan.salah5320/viz/Sentiment_Analysis_16641757630180/Dashboard1?publish=yes")
+        del st.session_state['menu_bar']
+        st.session_state['menu_bar'] = menu[0]
+        choice=menu[0]
+        st.experimental_rerun()
 
 
     else:
