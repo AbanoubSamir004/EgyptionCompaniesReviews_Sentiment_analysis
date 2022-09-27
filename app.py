@@ -515,7 +515,7 @@ def main():
     menu = ["Home","Data Visualization","About"]
     choice = st.sidebar.selectbox("Menu",menu,key='menu_bar')
     if choice == "Home":
-        all_df=0
+        flag=0
         with col1:
             st.subheader("Home")
             temp = st.slider("Choose sample size",min_value=50,max_value=10000)
@@ -530,6 +530,7 @@ def main():
                     submit_button = st.form_submit_button(label='Analyze')
             # layout
             if submit_button and len(comp_en)>0 and len(comp_ar)>0:
+                flag=1 
                 with col2:
                     st.success(f'Selected Language: Arabic, English')
 
@@ -578,26 +579,13 @@ def main():
                     #display Tweets
                     tweets_s_en = pd.Series(tweets_en,name='Tweet')
                     tweets_s_ar = pd.Series(tweets_ar,name='Tweet')
-                    tweets_s = pd.concat([tweets_s_en,tweets_s_ar]).reset_index().drop('index',axis=1)
+                    tweets = pd.concat([tweets_s_en,tweets_s_ar]).reset_index().drop('index',axis=1)
 
                     sentiments_s_en = pd.Series(sentiments_en,name='Sentiment (pred)').replace(
                         {1:'Positive',0:'Neutral',-1:'Negative'})
                     sentiments_s_ar = pd.Series(sentiments_ar,name='Sentiment (pred)').replace({1:'Positive',0:'Neutral',-1:'Negative'})
                     sentiments_s = pd.concat([sentiments_s_en,sentiments_s_ar]).reset_index().drop('index',axis=1)
-                    all_df = pd.merge(left=tweets_s,right=sentiments_s,left_index=True,right_index=True)
-                    
-                st.subheader("Tweets")
-                gb = GridOptionsBuilder.from_dataframe(all_df)
-                gb.configure_side_bar()
-                grid_options = gb.build()
-                AgGrid(
-                    all_df,
-                    gridOptions=grid_options,
-                    enable_enterprise_modules=True,
-                    update_mode=GridUpdateMode.MODEL_CHANGED,
-                    data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
-                    fit_columns_on_grid_load=False,
-                )
+                    all_df = pd.merge(left=tweets,right=sentiments_s,left_index=True,right_index=True)
                         
         else:
             with col1:
@@ -606,6 +594,7 @@ def main():
                     submit_button = st.form_submit_button(label='Analyze')   
                 
             if submit_button and len(raw_text)>0:
+                flag=1
                 with col2:
                     st.success(f'Selected English Sentiment Model')
                     query = raw_text + ' lang:en'
@@ -639,37 +628,39 @@ def main():
                     sentiments_s = pd.Series(sentiments,name='Sentiment (pred)').replace(
                         {'LABEL_2':'Positive','LABEL_1':'Negative','LABEL_0':'Neutral'})
                     all_df = pd.merge(left=tweets_s,right=sentiments_s,left_index=True,right_index=True)
-
-                with col2:
-                    st.subheader("Word Cloud")
-                    #Word Cloud
-                    if opt=='English':
-                        words = " ".join(word for tweet in tweets for word in tweet.split())
-                        st_en = set(stopwords.words('english'))
-                        #st_ar = set(stopwords.words('arabic'))
-                        st_en = st_en.union(STOPWORDS).union(set(['https','http','DM','dm','via','co']))
-                        wordcloud = WordCloud(stopwords=st_en, background_color="white", width=800, height=400)
-                        wordcloud.generate(words)
-                        fig2, ax2 = plt.subplots(figsize=(5,5))
-                        ax2.axis("off")
-                        fig2.tight_layout(pad=0)
-                        ax2.imshow(wordcloud, interpolation='bilinear')
-                        st.pyplot(fig2)
-                    else:
-                        st.error(f'WordCloud not available for Language = {opt}')
-                
-                st.subheader("Tweets")
-                gb = GridOptionsBuilder.from_dataframe(all_df)
-                gb.configure_side_bar()
-                grid_options = gb.build()
-                AgGrid(
-                    all_df,
-                    gridOptions=grid_options,
-                    enable_enterprise_modules=True,
-                    update_mode=GridUpdateMode.MODEL_CHANGED,
-                    data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
-                    fit_columns_on_grid_load=False,
-                )
+        
+        if flag==1:
+            flag=0
+            with col2:
+                st.subheader("Word Cloud")
+                #Word Cloud
+                if opt=='English':
+                    words = " ".join(word for tweet in tweets for word in tweet.split())
+                    st_en = set(stopwords.words('english'))
+                    #st_ar = set(stopwords.words('arabic'))
+                    st_en = st_en.union(STOPWORDS).union(set(['https','http','DM','dm','via','co']))
+                    wordcloud = WordCloud(stopwords=st_en, background_color="white", width=800, height=400)
+                    wordcloud.generate(words)
+                    fig2, ax2 = plt.subplots(figsize=(5,5))
+                    ax2.axis("off")
+                    fig2.tight_layout(pad=0)
+                    ax2.imshow(wordcloud, interpolation='bilinear')
+                    st.pyplot(fig2)
+                else:
+                    st.error(f'WordCloud not available for Language = {opt}')
+            
+            st.subheader("Tweets")
+            gb = GridOptionsBuilder.from_dataframe(all_df)
+            gb.configure_side_bar()
+            grid_options = gb.build()
+            AgGrid(
+                all_df,
+                gridOptions=grid_options,
+                enable_enterprise_modules=True,
+                update_mode=GridUpdateMode.MODEL_CHANGED,
+                data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
+                fit_columns_on_grid_load=False,
+            )
             
 
 
