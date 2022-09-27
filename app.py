@@ -29,7 +29,6 @@ import pickle
 
 
 #this part is defining each emojie as a word descriping its meaning
-
 emojis = {
     "🙂":"يبتسم",
     "😂":"يضحك",
@@ -328,7 +327,7 @@ def arabic_trained_model():
 def preprocess_arabic(df):
     # defining a vectorizer with max_features as 1000 and ngrams as (1, 2) 
     # which will be used for converting text into numerical form so the ML algorithm can handel it
-    filename='Custom trained model/custom_vectorizer.pk'
+    filename='Custom trained model\custom_vectorizer.pk'
     vectorizer = pickle.load(open(filename,'rb'))
 
     #this function renoves the diacritics(التشكيل او الزخارف)
@@ -470,9 +469,6 @@ def convert_to_df(sentiment_counts,opt):
     sentiment_df = pd.DataFrame(sentiment_dict.items(),columns=['Sentiment','Count'])
     return sentiment_df
 
-
-
-
 def get_sentiments(tweets,opt,model):
     """
     Get sentiments
@@ -519,93 +515,162 @@ def main():
     menu = ["Home","Data Visualization","About"]
     choice = st.sidebar.selectbox("Menu",menu,key='menu_bar')
     if choice == "Home":
+        all_df=0
         with col1:
             st.subheader("Home")
             temp = st.slider("Choose sample size",min_value=50,max_value=10000)
-            #opt = st.selectbox('Language',pd.Series(['Arabic','English']))
+            opt = st.selectbox('Language',pd.Series(['Arabic','English']))
             likes = st.slider("Minimum number of likes on tweet",min_value=0,max_value=5000)
             retweets = st.slider("Minimum number of retweets on tweet",min_value=0,max_value=500)
-            with st.form(key='form'):
-                comp_en = st.text_input("Company name (English)",key='comp_en')
-                comp_ar = st.text_input("Company name (Arabic)",key='comp_ar')
-                submit_button = st.form_submit_button(label='Analyze')
-        # layout
-        if submit_button and len(comp_en)>0 and len(comp_ar)>0:
-            with col2:
-                st.success(f'Selected Language: Arabic, English')
-                query_en = comp_en + ' lang:en'
-                query_ar = comp_ar +' lang:ar'
-                query_en += f' min_faves:{likes} min_retweets:{retweets}'
-                query_ar += f' min_faves:{likes} min_retweets:{retweets}'
-                st.write('Retreiving Tweets (English)...')
-                tweets_en = get_tweets(query_en,temp)
-                if(len(tweets_en)==temp):
-                    st.success(f'Found {len(tweets_en)}/{temp}')
-                else:
-                    st.error(f'Only Found {len(tweets_en)}/{temp}. Try changing min_likes, min_retweets')
-                st.write('Retreiving Tweets (Arabic)...')
-                tweets_ar = get_tweets(query_ar,temp)
-                if(len(tweets_ar)==temp):
-                    st.success(f'Found {len(tweets_ar)}/{temp}')
-                else:
-                    st.error(f'Only Found {len(tweets_ar)}/{temp}. Try changing min_likes, min_retweets')
-                st.write('Loading Model...')
-                model_en = setup_model()
-                model_ar = arabic_trained_model()
-                st.success('Loaded Model')
-                st.write('Analyzing Sentiments (English)...')
-                sentiments_en = get_sentiments(tweets_en,'English',model_en)
-                st.write('Analyzing Sentiments (Arabic)...')
-                sentiments_ar = get_sentiments(tweets_ar,'Arabic',model_ar)
-                st.success('DONE')
-                st.subheader(f"Results of {comp_en}, {comp_ar}")
-                counts_en = pd.Series(sentiments_en).value_counts()
-                counts_ar = pd.Series(sentiments_ar).value_counts()
-                df_en = convert_to_df(counts_en,"English")
-                df_ar = convert_to_df(counts_ar,"Arabic")
-                result_df = pd.DataFrame({'Sentiment':df_en['Sentiment'],'Count':[x+y for x,y in zip(df_en['Count'].values,df_ar['Count'].values)],'Count_ar':df_ar['Count'],'Count_en':df_en['Count']})
-                # Dataframe
-                st.dataframe(result_df)
+        if opt=="Arabic":
+            with col1:
+                with st.form(key='form'):
+                    comp_en = st.text_input("Company name (English)",key='comp_en')
+                    comp_ar = st.text_input("Company name (Arabic)",key='comp_ar')
+                    submit_button = st.form_submit_button(label='Analyze')
+            # layout
+            if submit_button and len(comp_en)>0 and len(comp_ar)>0:
+                with col2:
+                    st.success(f'Selected Language: Arabic, English')
 
-                fig1, ax1 = plt.subplots(figsize=(5,5))
-                ax1.pie(result_df['Count'],labels=result_df['Sentiment'].values, autopct='%1.1f%%',
-                        shadow=True, startangle=90,colors=['green','yellow','red'])
-                ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-                st.pyplot(fig1)
-                st.subheader("Word Cloud")
-                #Word Cloud
-                words = " ".join(word for tweet in tweets_en for word in tweet.split())
-                st_en = set(stopwords.words('english'))
-                #st_ar = set(stopwords.words('arabic'))
-                st_en = st_en.union(STOPWORDS).union(set(['https','http','DM','dm','via','co']))
-                wordcloud = WordCloud(stopwords=st_en, background_color="white", width=800, height=400)
-                wordcloud.generate(words)
-                fig2, ax2 = plt.subplots(figsize=(5,5))
-                ax2.axis("off")
-                fig2.tight_layout(pad=0)
-                ax2.imshow(wordcloud, interpolation='bilinear')
-                st.pyplot(fig2)
-                st.error(f'WordCloud not available for Language = Arabic')
-            st.subheader("Tweets")
-            tweets_s_en = pd.Series(tweets_en,name='Tweet')
-            tweets_s_ar = pd.Series(tweets_ar,name='Tweet')
-            tweets_s = pd.concat([tweets_s_en,tweets_s_ar]).reset_index().drop('index',axis=1)
-            sentiments_s_en = pd.Series(sentiments_en,name='Sentiment (pred)').replace(
-                {'LABEL_2':'Positive','LABEL_1':'Negative','LABEL_0':'Neutral'})
-            sentiments_s_ar = pd.Series(sentiments_ar,name='Sentiment (pred)').replace({1:'Positive',0:'Neutral',-1:'Negative'})
-            sentiments_s = pd.concat([sentiments_s_en,sentiments_s_ar]).reset_index().drop('index',axis=1)
-            all_df = pd.merge(left=tweets_s,right=sentiments_s,left_index=True,right_index=True)
-            gb = GridOptionsBuilder.from_dataframe(all_df)
-            gb.configure_side_bar()
-            grid_options = gb.build()
-            AgGrid(
-                all_df,
-                gridOptions=grid_options,
-                enable_enterprise_modules=True,
-                update_mode=GridUpdateMode.MODEL_CHANGED,
-                data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
-                fit_columns_on_grid_load=False,
-            )
+                    query_en = comp_en + ' lang:ar'
+                    query_ar = comp_ar +' lang:ar'
+                    query_en += f' min_faves:{likes} min_retweets:{retweets}'
+                    query_ar += f' min_faves:{likes} min_retweets:{retweets}'
+                    st.write('Retreiving Tweets (English)...')
+                    tweets_en = get_tweets(query_en,temp)
+                    if(len(tweets_en)==temp):
+                        st.success(f'Found {len(tweets_en)}/{temp}')
+                    else:
+                        st.error(f'Only Found {len(tweets_en)}/{temp}. Try changing min_likes, min_retweets')
+                    st.write('Retreiving Tweets (Arabic)...')
+                    tweets_ar = get_tweets(query_ar,temp)
+                    if(len(tweets_ar)==temp):
+                        st.success(f'Found {len(tweets_ar)}/{temp}')
+                    else:
+                        st.error(f'Only Found {len(tweets_ar)}/{temp}. Try changing min_likes, min_retweets')
+                    st.write('Loading Model...')
+
+                    model_en = arabic_trained_model()
+                    model_ar = arabic_trained_model()
+                    st.success('Loaded Model')
+                    st.write('Analyzing Sentiments (English)...')
+                    sentiments_en = get_sentiments(tweets_en,'Arabic',model_en)
+                    st.write('Analyzing Sentiments (Arabic)...')
+                    sentiments_ar = get_sentiments(tweets_ar,'Arabic',model_ar)
+                    st.success('DONE')
+                    st.subheader(f"Results of {comp_en}, {comp_ar}")
+                    counts_en = pd.Series(sentiments_en).value_counts()
+                    counts_ar = pd.Series(sentiments_ar).value_counts()
+
+                    df_en = convert_to_df(counts_en,"Arabic")
+                    df_ar = convert_to_df(counts_ar,"Arabic")
+                    result_df = pd.DataFrame({'Sentiment':df_en['Sentiment'],'Count':[x+y for x,y in zip(df_en['Count'].values,df_ar['Count'].values)],'Count_ar':df_ar['Count'],'Count_en':df_en['Count']})
+                    
+                    # Dataframe
+                    st.dataframe(result_df)
+                    fig1, ax1 = plt.subplots(figsize=(5,5))
+                    ax1.pie(result_df['Count'],labels=result_df['Sentiment'].values, autopct='%1.1f%%',
+                            shadow=True, startangle=90,colors=['green','yellow','red'])
+                    ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.      
+                    st.pyplot(fig1)
+
+                    #display Tweets
+                    tweets_s_en = pd.Series(tweets_en,name='Tweet')
+                    tweets_s_ar = pd.Series(tweets_ar,name='Tweet')
+                    tweets_s = pd.concat([tweets_s_en,tweets_s_ar]).reset_index().drop('index',axis=1)
+
+                    sentiments_s_en = pd.Series(sentiments_en,name='Sentiment (pred)').replace(
+                        {1:'Positive',0:'Neutral',-1:'Negative'})
+                    sentiments_s_ar = pd.Series(sentiments_ar,name='Sentiment (pred)').replace({1:'Positive',0:'Neutral',-1:'Negative'})
+                    sentiments_s = pd.concat([sentiments_s_en,sentiments_s_ar]).reset_index().drop('index',axis=1)
+                    all_df = pd.merge(left=tweets_s,right=sentiments_s,left_index=True,right_index=True)
+                    
+                st.subheader("Tweets")
+                gb = GridOptionsBuilder.from_dataframe(all_df)
+                gb.configure_side_bar()
+                grid_options = gb.build()
+                AgGrid(
+                    all_df,
+                    gridOptions=grid_options,
+                    enable_enterprise_modules=True,
+                    update_mode=GridUpdateMode.MODEL_CHANGED,
+                    data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
+                    fit_columns_on_grid_load=False,
+                )
+                        
+        else:
+            with col1:
+                with st.form(key='nlpForm'):
+                    raw_text = st.text_area("Enter company name here")
+                    submit_button = st.form_submit_button(label='Analyze')   
+                
+            if submit_button and len(raw_text)>0:
+                with col2:
+                    st.success(f'Selected English Sentiment Model')
+                    query = raw_text + ' lang:en'
+                    query += f' min_faves:{likes} min_retweets:{retweets}'
+                    st.write('Retreiving Tweets...')
+                    tweets = get_tweets(query,temp)
+                    if(len(tweets)==temp):
+                        st.success(f'Found {len(tweets)}/{temp}')
+                    else:
+                        st.error(f'Only Found {len(tweets)}/{temp}. Try changing min_likes, min_retweets')
+                    st.write('Loading Model...')
+                    model_en = setup_model()
+                    st.success('Loaded Model')
+                    st.write('Analyzing Sentiments...')
+                    sentiments = get_sentiments(tweets,'English',model_en)
+                    st.success('DONE')
+                    st.subheader("Results of "+raw_text)
+                    counts = pd.Series(sentiments).value_counts()
+                    result_df = convert_to_df(counts,'English')
+            
+                    # Dataframe
+                    st.dataframe(result_df)
+                    fig1, ax1 = plt.subplots(figsize=(5,5))
+                    ax1.pie(result_df['Count'],labels=result_df['Sentiment'].values, autopct='%1.1f%%',
+                            shadow=True, startangle=90,colors=['green','yellow','red'])
+                    ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.    
+                    st.pyplot(fig1)
+
+                    #display Tweets
+                    tweets_s = pd.Series(tweets,name='Tweet')
+                    sentiments_s = pd.Series(sentiments,name='Sentiment (pred)').replace(
+                        {'LABEL_2':'Positive','LABEL_1':'Negative','LABEL_0':'Neutral'})
+                    all_df = pd.merge(left=tweets_s,right=sentiments_s,left_index=True,right_index=True)
+
+                with col2:
+                    st.subheader("Word Cloud")
+                    #Word Cloud
+                    if opt=='English':
+                        words = " ".join(word for tweet in tweets for word in tweet.split())
+                        st_en = set(stopwords.words('english'))
+                        #st_ar = set(stopwords.words('arabic'))
+                        st_en = st_en.union(STOPWORDS).union(set(['https','http','DM','dm','via','co']))
+                        wordcloud = WordCloud(stopwords=st_en, background_color="white", width=800, height=400)
+                        wordcloud.generate(words)
+                        fig2, ax2 = plt.subplots(figsize=(5,5))
+                        ax2.axis("off")
+                        fig2.tight_layout(pad=0)
+                        ax2.imshow(wordcloud, interpolation='bilinear')
+                        st.pyplot(fig2)
+                    else:
+                        st.error(f'WordCloud not available for Language = {opt}')
+                
+                st.subheader("Tweets")
+                gb = GridOptionsBuilder.from_dataframe(all_df)
+                gb.configure_side_bar()
+                grid_options = gb.build()
+                AgGrid(
+                    all_df,
+                    gridOptions=grid_options,
+                    enable_enterprise_modules=True,
+                    update_mode=GridUpdateMode.MODEL_CHANGED,
+                    data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
+                    fit_columns_on_grid_load=False,
+                )
+            
 
 
     elif choice == "Data Visualization":
