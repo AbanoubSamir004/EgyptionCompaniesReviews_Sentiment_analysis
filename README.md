@@ -4,7 +4,7 @@ This is a Streamlit app for sentiment analysis that we uses two models.
 
 1- XLM RoBERTa Pre-Trained model on Hugging Face for English Sentiment analysis. 
 
-2- Arabic Sentiment Analysis model that our team built from scratch:
+2- Arabic Sentiment Analysis model that our team built it from scratch:
 
       • For a different corporation, we scraped a 67k Arabic reviews. [Facebook, Instagram, Google Play, App Store, Google Maps, and Glassdoor].
 
