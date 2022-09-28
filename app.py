@@ -552,13 +552,12 @@ def main():
                         st.error(f'Only Found {len(tweets_ar)}/{temp}. Try changing min_likes, min_retweets')
                     st.write('Loading Model...')
 
-                    model_en = arabic_trained_model()
-                    model_ar = arabic_trained_model()
+                    model= arabic_trained_model()
                     st.success('Loaded Model')
                     st.write('Analyzing Sentiments (English)...')
-                    sentiments_en = get_sentiments(tweets_en,'Arabic',model_en)
+                    sentiments_en = get_sentiments(tweets_en,'Arabic',model)
                     st.write('Analyzing Sentiments (Arabic)...')
-                    sentiments_ar = get_sentiments(tweets_ar,'Arabic',model_ar)
+                    sentiments_ar = get_sentiments(tweets_ar,'Arabic',model)
                     st.success('DONE')
                     st.subheader(f"Results of {comp_en}, {comp_ar}")
                     counts_en = pd.Series(sentiments_en).value_counts()
@@ -567,9 +566,9 @@ def main():
                     df_en = convert_to_df(counts_en,"Arabic")
                     df_ar = convert_to_df(counts_ar,"Arabic")
                     result_df = pd.DataFrame({'Sentiment':df_en['Sentiment'],'Count':[x+y for x,y in zip(df_en['Count'].values,df_ar['Count'].values)],'Count_ar':df_ar['Count'],'Count_en':df_en['Count']})
-                    
-                    # Dataframe
+                    # Display Dataframe
                     st.dataframe(result_df)
+                    #display pie chart
                     fig1, ax1 = plt.subplots(figsize=(5,5))
                     ax1.pie(result_df['Count'],labels=result_df['Sentiment'].values, autopct='%1.1f%%',
                             shadow=True, startangle=90,colors=['green','yellow','red'])
@@ -662,7 +661,6 @@ def main():
                 fit_columns_on_grid_load=False,
             )
             
-
 
     elif choice == "Data Visualization":
         webbrowser.open("https://public.tableau.com/app/profile/marwan.salah5320/viz/SentimentAnalysis_ArabCompanies/Dashboard1?publish=yes")
