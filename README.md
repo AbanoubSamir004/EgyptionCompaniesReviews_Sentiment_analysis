@@ -6,9 +6,9 @@ This is a Streamlit app for sentiment analysis that we uses two models.
 
 2- Arabic Sentiment Analysis model that our team built from scratch:
 
-      • For a different corporation, we scraped a 67k Arabic revwies. [Facebook, Instagram, Google Play, App Store, Google Maps, and Glassdoor].
+      • For a different corporation, we scraped a 67k Arabic reviews. [Facebook, Instagram, Google Play, App Store, Google Maps, and Glassdoor].
 
-      • Data preprocessing and EDA using our Arabic dataset to train various machine learning models. 
+      •  Data preprocessing, EDA and trained a various machine learning models.
 
       • We scrapes Twitter for tweets about a specific company. The tweets are then fed into a model for sentiment analysis.
       
