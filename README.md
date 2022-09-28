@@ -46,4 +46,4 @@ Now to run the app, just simply run the command below in a terminal.
 streamlit run app.py
 ```
 # About 
-This project was developed by the data scientist team during our internship at Banque Misr .
+This project was developed by the data scientist team during our internship at Digital Factory-Banque Misr .
