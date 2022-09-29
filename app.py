@@ -21,7 +21,7 @@ import emoji
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 import pickle
-
+nltk.download('stopwords')
 #please download the pretrained model for english sentiments [note: Only download it once. ]
 #nlp = pipeline("sentiment-analysis", model='akhooli/xlm-r-large-arabic-sent')
 #nlp.save_pretrained('XLM-R-L-ARABIC-SENT')
