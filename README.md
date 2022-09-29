@@ -11,7 +11,12 @@ This is a Streamlit app for sentiment analysis that we uses two models.
       •  Data preprocessing, EDA and trained a various machine learning models.
 
       • We scrapes Twitter for tweets about a specific company. The tweets are then fed into a model for sentiment analysis.
-      
+
+# Interface
+Below is a video demo of the app.   
+
+https://user-images.githubusercontent.com/60902991/193070442-a7b6bf65-8787-4170-92c5-0bbac4f7808f.mp4
+
  # Installation
 To be able to use this app, please follow the instructions below. First, you need to install requirements using the following command.
 ```bash
