@@ -319,7 +319,7 @@ emoticons_to_emoji = {
 
 #LOAD ARABIC MODEL TRAINED ON DATASET
 def arabic_trained_model():
-    filename = 'Custom trained model/custom_trained_model.sav'
+    filename = 'Custom trained model\Full_data_trained_model.sav'
     loaded_model = pickle.load(open(filename, 'rb'))
     return loaded_model
 
@@ -558,6 +558,7 @@ def main():
                     sentiments_en = get_sentiments(tweets_en,'Arabic',model)
                     st.write('Analyzing Sentiments (Arabic)...')
                     sentiments_ar = get_sentiments(tweets_ar,'Arabic',model)
+
                     st.success('DONE')
                     st.subheader(f"Results of {comp_en}, {comp_ar}")
                     counts_en = pd.Series(sentiments_en).value_counts()
