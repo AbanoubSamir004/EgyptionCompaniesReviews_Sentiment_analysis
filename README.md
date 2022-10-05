@@ -15,6 +15,7 @@ This is a Streamlit app for sentiment analysis that we uses two models.
 # Interface
 Below is a video demo of the app.   
 
+[screen-capture (1).webm](https://user-images.githubusercontent.com/60902991/194036759-4a4e1e86-af88-4bb3-81c3-8355acbc96e9.webm)
 
  # Installation
 To be able to use this app, please follow the instructions below. First, you need to install requirements using the following command.
