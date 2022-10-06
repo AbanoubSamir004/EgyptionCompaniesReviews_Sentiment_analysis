@@ -22,6 +22,8 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 import pickle
 import nltk
+from tensorflow import keras
+
 nltk.download('stopwords')
 #please download the pretrained model for english sentiments [note: Only download it once. ]
 #nlp = pipeline("sentiment-analysis", model='akhooli/xlm-r-large-arabic-sent')
@@ -317,14 +319,6 @@ emoticons_to_emoji = {
 }
 
 
-
-#LOAD ARABIC MODEL TRAINED ON DATASET
-def arabic_trained_model():
-    filename = 'Custom trained model\Full_data_trained_model.sav'
-    loaded_model = pickle.load(open(filename, 'rb'))
-    return loaded_model
-
-
 def preprocess_arabic(df):
     # defining a vectorizer with max_features as 1000 and ngrams as (1, 2) 
     # which will be used for converting text into numerical form so the ML algorithm can handel it
@@ -409,17 +403,25 @@ def preprocess_arabic(df):
     X=pd.DataFrame(my_array,columns=vectorizer.get_feature_names_out())
     return X
 
-#use pretrained model for english sentiments
-def setup_model():  
+def trained_model(lang):  
     """
-    Setup Model
-    Output:
-        nlp: XLM RoBERTa HuggingFace multilingual Model
+        trained_model Model
+        Output:
+            nlp: XLM RoBERTa HuggingFace multilingual Model
+            or
+            our arabic trained model
     """
-    # MAKE SURE the model is save in 'XLM-R-L-ARABIC-SENT'
-    # model link: https://huggingface.co/akhooli/xlm-r-large-arabic-sent
-    nlp = pipeline("sentiment-analysis", model='XLM-R-L-ARABIC-SENT')
-    return nlp
+    if lang=="Arabic":
+        #used logistic regression model
+        filename = 'Custom trained model\logistic_regression_trained_model.sav'
+        #load dense model 
+        #loaded_model = keras.models.load_model(filename)
+        loaded_model = pickle.load(open(filename, 'rb'))
+    else:
+        # MAKE SURE the model is save in 'XLM-R-L-ARABIC-SENT'
+        # model link: https://huggingface.co/akhooli/xlm-r-large-arabic-sent
+        loaded_model = pipeline("sentiment-analysis", model='XLM-R-L-ARABIC-SENT')
+    return loaded_model
 
 
 def get_tweets(query,limit):
@@ -445,7 +447,6 @@ def get_tweets(query,limit):
     return tweets
 
 
-# Fxn
 #store fetched sentiments in a data frame
 def convert_to_df(sentiment_counts,opt):
     """
@@ -470,6 +471,20 @@ def convert_to_df(sentiment_counts,opt):
     sentiment_df = pd.DataFrame(sentiment_dict.items(),columns=['Sentiment','Count'])
     return sentiment_df
 
+def getCats(y_hat):
+    """
+    getCats: used to convert softmax output to one hot [Used only with dense models]
+    Input:
+        y_hat: softmax output 
+        opt: one hot output
+    Output:
+        cat_list: one hot output
+    """
+    cat_list = []
+    for i in y_hat:
+        cat_list.append(np.argmax(i) - 1)
+    return np.array(cat_list)
+
 def get_sentiments(tweets,opt,model):
     """
     Get sentiments
@@ -487,11 +502,12 @@ def get_sentiments(tweets,opt,model):
         tweets=pd.DataFrame(tweets,columns=['review_description'])
         X=preprocess_arabic(tweets)
         sentiments = model.predict(X)
+        #for dense model only
+        #sentiments = getCats(sentiments)
         pbar.progress(100)
         latest_iteration.text('100% Done')
             
     else:
-
         for i,tweet in enumerate(tweets):
             latest_iteration.text(f'{int((i+1)/len(tweets)*100)}% Done')
             pbar.progress(int((i+1)/len(tweets)*100))
@@ -504,8 +520,12 @@ def main():
     Main
     """
     st.set_page_config(layout="wide",initial_sidebar_state="collapsed")
+
+    #split the page into 3 sections [col1, col2, col3]
     col1,col2,col3 = st.columns((1,2,1))
     image = Image.open('banquemisr.png')
+
+    #put banque misr image into col3
     with col3:
         st.image(image)
     with col1:
@@ -513,110 +533,192 @@ def main():
         st.subheader("Made by Fahd Seddik")
     with col2:
         st.title("")
+    
+    #make a menu with three options
     menu = ["Home","Data Visualization","About"]
     choice = st.sidebar.selectbox("Menu",menu,key='menu_bar')
+
+    #selected the Home option
     if choice == "Home":
+        #boolean variable used for english word cloud and diplay the tweets
         flag=0
+        
+        #put this action in col1
         with col1:
             st.subheader("Home")
-            temp = st.slider("Choose sample size",min_value=50,max_value=10000)
+            
+            #Choose the sample size for the tweets.
+            temp = st.slider("Choose sample size",min_value=50,max_value=100000)
+
+            #choose the language model:
+            #if Arabic, then we use our arabic trained model
+            #if english, then we use XLM RoBERTa HuggingFace multilingual Model
             opt = st.selectbox('Language',pd.Series(['Arabic','English']))
-            likes = st.slider("Minimum number of likes on tweet",min_value=0,max_value=5000)
-            retweets = st.slider("Minimum number of retweets on tweet",min_value=0,max_value=500)
+            
+            #Choose the Minimum number of retweets for the tweets.
+            likes = st.slider("Minimum number of likes on tweet",min_value=0,max_value=50000)
+
+            #Choose the Minimum number of likes for the tweets.
+            retweets = st.slider("Minimum number of retweets on tweet",min_value=0,max_value=5000)
+
+        #selected the arabic language/ model
         if opt=="Arabic":
+
+            #put this action in col1
             with col1:
-                with st.form(key='form'):
+                #create a form to take the company name in [english/arabic] or upload the dataset file
+                with st.form(key='form',clear_on_submit=True):
+                    fileTypes = ["csv", "xlsx"]
                     comp_en = st.text_input("Company name (English)",key='comp_en')
                     comp_ar = st.text_input("Company name (Arabic)",key='comp_ar')
+                    file = st.file_uploader("Upload file", type=fileTypes)
                     submit_button = st.form_submit_button(label='Analyze')
+
             # layout
-            if submit_button and len(comp_en)>0 and len(comp_ar)>0:
-                flag=1 
+            #submitted "Analyze button"
+            if submit_button:
+                check=0
+                #put this action in col2
                 with col2:
-                    st.success(f'Selected Language: Arabic, English')
+                    #company names written successfully.
+                    if len(comp_en)>0 and len(comp_ar)>0:
+                        flag=1 
+                        check=1
+                        st.success(f'Selected Language: Arabic, English')
 
-                    query_en = comp_en + ' lang:ar'
-                    query_ar = comp_ar +' lang:ar'
-                    query_en += f' min_faves:{likes} min_retweets:{retweets}'
-                    query_ar += f' min_faves:{likes} min_retweets:{retweets}'
-                    st.write('Retreiving Tweets (English)...')
-                    tweets_en = get_tweets(query_en,temp)
-                    if(len(tweets_en)==temp):
-                        st.success(f'Found {len(tweets_en)}/{temp}')
-                    else:
-                        st.error(f'Only Found {len(tweets_en)}/{temp}. Try changing min_likes, min_retweets')
-                    st.write('Retreiving Tweets (Arabic)...')
-                    tweets_ar = get_tweets(query_ar,temp)
-                    if(len(tweets_ar)==temp):
-                        st.success(f'Found {len(tweets_ar)}/{temp}')
-                    else:
-                        st.error(f'Only Found {len(tweets_ar)}/{temp}. Try changing min_likes, min_retweets')
-                    st.write('Loading Model...')
+                        #create Twitter queries.
+                        query_en = comp_en + ' lang:ar'
+                        query_ar = comp_ar +' lang:ar'
+                        query_en += f' min_faves:{likes} min_retweets:{retweets}'
+                        query_ar += f' min_faves:{likes} min_retweets:{retweets}'
 
-                    model= arabic_trained_model()
-                    st.success('Loaded Model')
-                    st.write('Analyzing Sentiments (English)...')
-                    sentiments_en = get_sentiments(tweets_en,'Arabic',model)
-                    st.write('Analyzing Sentiments (Arabic)...')
-                    sentiments_ar = get_sentiments(tweets_ar,'Arabic',model)
+                        #scraping the arabic reviews for the english company name
+                        st.write(f'Retreiving Tweets [{comp_en}]...')
+                        #collect data from twitter
+                        tweets_en = get_tweets(query_en,temp)
 
-                    st.success('DONE')
-                    st.subheader(f"Results of {comp_en}, {comp_ar}")
-                    counts_en = pd.Series(sentiments_en).value_counts()
-                    counts_ar = pd.Series(sentiments_ar).value_counts()
-
-                    df_en = convert_to_df(counts_en,"Arabic")
-                    df_ar = convert_to_df(counts_ar,"Arabic")
-                    result_df = pd.DataFrame({'Sentiment':df_en['Sentiment'],'Count':[x+y for x,y in zip(df_en['Count'].values,df_ar['Count'].values)],'Count_ar':df_ar['Count'],'Count_en':df_en['Count']})
-                    # Display Dataframe
-                    st.dataframe(result_df)
-                    #display pie chart
-                    fig1, ax1 = plt.subplots(figsize=(5,5))
-                    ax1.pie(result_df['Count'],labels=result_df['Sentiment'].values, autopct='%1.1f%%',
-                            shadow=True, startangle=90,colors=['green','yellow','red'])
-                    ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.      
-                    st.pyplot(fig1)
-
-                    #display Tweets
-                    tweets_s_en = pd.Series(tweets_en,name='Tweet')
-                    tweets_s_ar = pd.Series(tweets_ar,name='Tweet')
-                    tweets = pd.concat([tweets_s_en,tweets_s_ar]).reset_index().drop('index',axis=1)
-
-                    sentiments_s_en = pd.Series(sentiments_en,name='Sentiment (pred)').replace(
-                        {1:'Positive',0:'Neutral',-1:'Negative'})
-                    sentiments_s_ar = pd.Series(sentiments_ar,name='Sentiment (pred)').replace({1:'Positive',0:'Neutral',-1:'Negative'})
-                    sentiments_s = pd.concat([sentiments_s_en,sentiments_s_ar]).reset_index().drop('index',axis=1)
-                    all_df = pd.merge(left=tweets,right=sentiments_s,left_index=True,right_index=True)
+                        #Checking how many tweets are found
+                        if(len(tweets_en)==temp):
+                            st.success(f'Found {len(tweets_en)}/{temp}')
+                        else:
+                            st.error(f'Only Found {len(tweets_en)}/{temp}. Try changing min_likes, min_retweets')
                         
+                        #scraping the arabic reviews for the arabic company name
+                        st.write(f'Retreiving Tweets [{comp_ar}]...')
+                        
+                        #collect data from twitter
+                        tweets_ar = get_tweets(query_ar,temp)
+
+                        #Checking how many tweets are found
+                        if(len(tweets_ar)==temp):
+                            st.success(f'Found {len(tweets_ar)}/{temp}')
+                        else:
+                            st.error(f'Only Found {len(tweets_ar)}/{temp}. Try changing min_likes, min_retweets')
+
+                        #Merging tweets
+                        tweets_ar=pd.DataFrame(tweets_ar,columns=['review_description'])
+                        tweets_en=pd.DataFrame(tweets_en,columns=['review_description'])
+                        tweets=pd.concat([tweets_ar,tweets_en])
+                        comp_name=comp_en+comp_ar
+
+                    #uploaded dataset file successfully
+                    elif file:
+                        flag=1 
+                        check=1
+                        st.success(f"[{file.name}] Uploaded Successfully...")
+
+                        #cCheck the dataset file types [csv/xlsx]
+                        if file.type=='csv':
+                            tweets = pd.read_csv(file)
+                        else:
+                            tweets = pd.read_excel(file)
+
+                        comp_name=file.name
+
+                    #If the user uploads the dataset file or writes the company name
+                    if check==1:
+                        #loading model
+                        st.write('Loading Model...')
+                        model= trained_model("Arabic")
+                        st.success('Loaded Model')
+                        #analyzing data
+                        st.write('Analyzing Sentiments...')
+                        #preprocessing and model prediction
+                        sentiments = get_sentiments(tweets,'Arabic',model)
+
+                        st.success('DONE')
+                        st.subheader(f"Results of {comp_name}")
+
+                        #count [Positive - negative - neutral] results
+                        counts = pd.Series(sentiments).value_counts()
+
+                        result_df = convert_to_df(counts,"Arabic")
+                    
+                        # display the Dataframe result
+                        st.dataframe(result_df)
+
+                        #plot a pie chart for the results   
+                        fig1, ax1 = plt.subplots(figsize=(5,5))
+                        ax1.pie(result_df['Count'],labels=result_df['Sentiment'].values, autopct='%1.1f%%',
+                                shadow=True, startangle=90,colors=['green','yellow','red'])
+                        ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.    
+                        st.pyplot(fig1)
+
+                        #Merging tweets and its sentiments prediction results 
+                        sentiments_s = pd.Series(sentiments,name='Sentiment (pred)').replace(
+                            {1:'Positive',0:'Neutral',-1:'Negative'})
+                        all_df = pd.merge(left=tweets,right=sentiments_s,left_index=True,right_index=True)
+                        check=0
+
+        #selected the english language/model              
         else:
+            #put this action in col1
             with col1:
+                #create a form to take the english company name 
                 with st.form(key='nlpForm'):
                     raw_text = st.text_area("Enter company name here")
                     submit_button = st.form_submit_button(label='Analyze')   
-                
+
+            #submitted "Analyze button" and company name written successfully.
             if submit_button and len(raw_text)>0:
                 flag=1
+                #put this action in col2
                 with col2:
-                    st.success(f'Selected English Sentiment Model')
+                    st.success(f'Selected English Sentiment Model')    
+                    #create Twitter query.
                     query = raw_text + ' lang:en'
                     query += f' min_faves:{likes} min_retweets:{retweets}'
+
+                    #scraping the english reviews
                     st.write('Retreiving Tweets...')
+
+                    #collect data from twitter
                     tweets = get_tweets(query,temp)
+
+                    #Checking how many tweets are found
                     if(len(tweets)==temp):
                         st.success(f'Found {len(tweets)}/{temp}')
                     else:
                         st.error(f'Only Found {len(tweets)}/{temp}. Try changing min_likes, min_retweets')
+
+                    #loading model    
                     st.write('Loading Model...')
-                    model_en = setup_model()
+                    #selected XLM RoBERTa HuggingFace multilingual Model
+                    model_en = trained_model("English")
                     st.success('Loaded Model')
+
+                    #preprocessing and model prediction
                     st.write('Analyzing Sentiments...')
                     sentiments = get_sentiments(tweets,'English',model_en)
+                    
                     st.success('DONE')
                     st.subheader("Results of "+raw_text)
+                    
+                    #count [Positive - negative - neutral] results
                     counts = pd.Series(sentiments).value_counts()
                     result_df = convert_to_df(counts,'English')
             
-                    # Dataframe
+                    # display the Dataframe result
                     st.dataframe(result_df)
                     fig1, ax1 = plt.subplots(figsize=(5,5))
                     ax1.pie(result_df['Count'],labels=result_df['Sentiment'].values, autopct='%1.1f%%',
@@ -624,13 +726,15 @@ def main():
                     ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.    
                     st.pyplot(fig1)
 
-                    #display Tweets
+                    #Merging tweets and its sentiments prediction results 
                     tweets_s = pd.Series(tweets,name='Tweet')
                     sentiments_s = pd.Series(sentiments,name='Sentiment (pred)').replace(
                         {'LABEL_2':'Positive','LABEL_1':'Negative','LABEL_0':'Neutral'})
                     all_df = pd.merge(left=tweets_s,right=sentiments_s,left_index=True,right_index=True)
         
+        #checking if the user selected the arabic/english model successfully
         if flag==1:
+            #reset the flag
             flag=0
             with col2:
                 st.subheader("Word Cloud")
@@ -650,6 +754,7 @@ def main():
                 else:
                     st.error(f'WordCloud not available for Language = {opt}')
             
+            # display the tweets and sentiments prediction results 
             st.subheader("Tweets")
             gb = GridOptionsBuilder.from_dataframe(all_df)
             gb.configure_side_bar()
@@ -663,7 +768,7 @@ def main():
                 fit_columns_on_grid_load=False,
             )
             
-
+    #selected the Data Visualization option
     elif choice == "Data Visualization":
         webbrowser.open("https://public.tableau.com/app/profile/marwan.salah5320/viz/SentimentAnalysis_ArabCompanies/Dashboard1?publish=yes")
         del st.session_state['menu_bar']
@@ -671,13 +776,12 @@ def main():
         choice=menu[0]
         st.experimental_rerun()
 
-
+    #selected the About option
     elif choice=="About":
         st.subheader("About")
         st.write("This was made in order to have an idea about people's opinion on a certain company. The program scrapes twitter for tweets\
              that are about a certain company. The tweets are then fed into a model for sentiment analysis which is then used \
             to display useful information about each company and public opinion.")
-
 
 if __name__ == '__main__':
 	main()
