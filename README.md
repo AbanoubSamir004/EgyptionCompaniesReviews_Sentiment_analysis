@@ -1,5 +1,7 @@
 # EgyptionCompaniesReviews_Sentiment_analysis
 
+### This app was made by [Fahd Seddik](https://github.com/FahdSeddik) and developed by our data science team.
+
 This is a Streamlit app for sentiment analysis that we uses two models.
 
 1- XLM RoBERTa Pre-Trained model on Hugging Face for English Sentiment analysis. 
@@ -15,7 +17,7 @@ This is a Streamlit app for sentiment analysis that we uses two models.
 # Interface
 Below is a video demo of the app.   
 
-[screen-capture (1).webm](https://user-images.githubusercontent.com/60902991/194036759-4a4e1e86-af88-4bb3-81c3-8355acbc96e9.webm)
+https://user-images.githubusercontent.com/60902991/194188937-ff6f1283-c206-403f-b4ed-f3357979adb3.mp4
 
  # Installation
 To be able to use this app, please follow the instructions below. First, you need to install requirements using the following command.
@@ -51,4 +53,4 @@ Now to run the app, just simply run the command below in a terminal.
 streamlit run app.py
 ```
 # About 
-This project was developed by the data scientist team during our internship at Digital Factory-Banque Misr .
+This project was made by the data science team during our internship at Digital Factory-Banque Misr .
