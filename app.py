@@ -783,7 +783,7 @@ def main():
             to display useful information about each company and public opinion.")
         
         
-        st.subheader("This project was developed by the data scientist team during our internship at Digital Factory-Banque Misr .")
+        st.subheader("This project was made by the data scientist team during our internship at Digital Factory-Banque Misr .")
 
 
 
