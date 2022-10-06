@@ -530,7 +530,6 @@ def main():
         st.image(image)
     with col1:
         st.title("Company Based Sentiment")
-        st.subheader("Made by Fahd Seddik")
     with col2:
         st.title("")
     
@@ -782,6 +781,11 @@ def main():
         st.write("This was made in order to have an idea about people's opinion on a certain company. The program scrapes twitter for tweets\
              that are about a certain company. The tweets are then fed into a model for sentiment analysis which is then used \
             to display useful information about each company and public opinion.")
+        
+        
+        st.subheader("This project was developed by the data scientist team during our internship at Digital Factory-Banque Misr .")
+
+
 
 if __name__ == '__main__':
 	main()
