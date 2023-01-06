@@ -1,6 +1,6 @@
 # EgyptionCompaniesReviews_Sentiment_analysis
 
-### This app was made by [Fahd Seddik](https://github.com/FahdSeddik) and developed by our data science team.
+### This app was made and developed by our data science team.
 
 This is a Streamlit app for sentiment analysis that we uses two models.
 
